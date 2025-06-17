@@ -1,22 +1,1134 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>药品数据对比工具 - 离线版</title>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+    :root {
+        --primary: #3498db;
+        --success: #2ecc71;
+        --warning: #f39c12;
+        --danger: #e74c3c;
+        --light: #f8f9fa;
+        --dark: #343a40;
+        --gray: #6c757d;
+    }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
 
-            <form class="row" id="greet-form">
-                <input id="greet-input" placeholder="Enter a name..." />
-                <button type="submit">Greet</button>
-            </form>
-            <p id="greet-msg"></p>
-        </main>
-    </body>
+    body {
+        background-color: #f5f7fa;
+        color: #333;
+        line-height: 1.6;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, #3498db, #2c3e50);
+        color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+
+    .subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .upload-section {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: transform 0.3s ease;
+    }
+
+    .upload-section:hover {
+        transform: translateY(-5px);
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        color: var(--dark);
+        font-size: 1.4rem;
+    }
+
+    .section-title i {
+        margin-right: 10px;
+        font-size: 1.8rem;
+    }
+
+    .drop-area {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+        margin-bottom: 20px;
+    }
+
+    .drop-area:hover, .drop-area.active {
+        border-color: var(--primary);
+        background-color: rgba(52, 152, 219, 0.05);
+    }
+
+    .drop-area i {
+        font-size: 3rem;
+        color: var(--primary);
+        margin-bottom: 15px;
+        display: block;
+    }
+
+    .file-info {
+        margin-top: 15px;
+        font-size: 0.9rem;
+        color: var(--gray);
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 12px 25px;
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-align: center;
+        margin: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn:hover {
+        background-color: #2980b9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-success {
+        background-color: var(--success);
+    }
+
+    .btn-success:hover {
+        background-color: #27ae60;
+    }
+
+    .btn-danger {
+        background-color: var(--danger);
+    }
+
+    .btn-danger:hover {
+        background-color: #c0392b;
+    }
+
+    .btn-warning {
+        background-color: var(--warning);
+    }
+
+    .btn-warning:hover {
+        background-color: #e67e22;
+    }
+
+    .btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin: 30px 0;
+        flex-wrap: wrap;
+    }
+
+    .result-container {
+        background: white;
+        border-radius: 10px;
+        padding: 25px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+    }
+
+    .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        padding: 12px 25px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        color: var(--gray);
+    }
+
+    .tab.active {
+        color: var(--primary);
+    }
+
+    .tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background-color: var(--primary);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    th, td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    th {
+        background-color: #f1f8ff;
+        font-weight: 600;
+    }
+
+    tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .status-cell {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-missing {
+        background-color: rgba(231, 76, 60, 0.15);
+        color: var(--danger);
+    }
+
+    .status-spec {
+        background-color: rgba(243, 156, 18, 0.15);
+        color: var(--warning);
+    }
+
+    .status-origin {
+        background-color: rgba(41, 128, 185, 0.15);
+        color: #2980b9;
+    }
+
+    .summary {
+        display: flex;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        margin: 20px 0;
+        gap: 15px;
+    }
+
+    .summary-item {
+        text-align: center;
+        padding: 20px;
+        border-radius: 10px;
+        min-width: 180px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .summary-item.missing {
+        background-color: rgba(231, 76, 60, 0.1);
+        border: 1px solid rgba(231, 76, 60, 0.2);
+    }
+
+    .summary-item.spec {
+        background-color: rgba(243, 156, 18, 0.1);
+        border: 1px solid rgba(243, 156, 18, 0.2);
+    }
+
+    .summary-item.origin {
+        background-color: rgba(41, 128, 185, 0.1);
+        border: 1px solid rgba(41, 128, 185, 0.2);
+    }
+
+    .summary-item h3 {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+        color: var(--dark);
+    }
+
+    .summary-item .count {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 10px 0;
+    }
+
+    .summary-item.missing .count {
+        color: var(--danger);
+    }
+
+    .summary-item.spec .count {
+        color: var(--warning);
+    }
+
+    .summary-item.origin .count {
+        color: var(--primary);
+    }
+
+    footer {
+        text-align: center;
+        margin-top: 40px;
+        padding: 20px;
+        color: var(--gray);
+        font-size: 0.9rem;
+        border-top: 1px solid #eee;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray);
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        color: #ddd;
+    }
+
+    .empty-state p {
+        font-size: 1.2rem;
+    }
+
+    .progress-container {
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin: 20px 0;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background-color: var(--primary);
+        width: 0%;
+        transition: width 0.4s ease;
+    }
+
+    .storage-info {
+        background-color: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+    }
+
+    /* 新增样式用于显示清洗后的规格 */
+    .clean-spec {
+        font-size: 0.85em;
+        color: #666;
+        margin-top: 3px;
+    }
+</style>
+</head>
+<body>
+<header>
+<h1>药品数据对比工具</h1>
+<p class="subtitle">上传两张药品表格，系统将自动进行三级对比：药品名称匹配 → 规格匹配 → 产地匹配，并生成差异报告</p>
+</header>
+<div class="container">
+<div class="upload-section">
+<div class="section-title">
+<i>📋</i>
+<h2>表A - 新数据表</h2>
+</div>
+<div class="drop-area" id="dropAreaA">
+<i>📤</i>
+<p>点击或拖拽Excel文件到此处上传</p>
+<p class="file-info">支持 .xlsx, .xls, .csv 格式</p>
+<div class="file-info" id="fileInfoA">未选择文件</div>
+</div>
+<input accept=".xlsx,.xls,.csv" hidden="" id="fileInputA" type="file"/>
+</div>
+<div class="upload-section">
+<div class="section-title">
+<i>📊</i>
+<h2>表B - 总数据表</h2>
+</div>
+<div class="drop-area" id="dropAreaB">
+<i>📥</i>
+<p>点击或拖拽Excel文件到此处上传</p>
+<p class="file-info">支持 .xlsx, .xls, .csv 格式</p>
+<div class="file-info" id="fileInfoB">未选择文件</div>
+</div>
+<input accept=".xlsx,.xls,.csv" hidden="" id="fileInputB" type="file"/>
+</div>
+</div>
+<div class="actions">
+<button class="btn" disabled="" id="compareBtn">开始对比</button>
+<button class="btn btn-danger" id="resetBtn">重置数据</button>
+</div>
+<div class="progress-container">
+<div class="progress-bar" id="progressBar"></div>
+</div>
+<div class="result-container">
+<div class="section-title">
+<i>🔍</i>
+<h2>对比结果</h2>
+</div>
+<div class="summary" id="summaryContainer">
+<div class="summary-item missing">
+<h3>药品缺失</h3>
+<div class="count" id="missingCount">0</div>
+<p>总数据表中不存在的药品</p>
+</div>
+<div class="summary-item spec">
+<h3>规格不匹配</h3>
+<div class="count" id="specCount">0</div>
+<p>药品存在但规格不同</p>
+</div>
+<div class="summary-item origin">
+<h3>产地不匹配</h3>
+<div class="count" id="originCount">0</div>
+<p>规格相同但产地不同</p>
+</div>
+</div>
+<div class="tabs">
+<div class="tab active" data-tab="missing">缺失药品 (<span id="missingTabCount">0</span>)</div>
+<div class="tab" data-tab="spec">规格不匹配 (<span id="specTabCount">0</span>)</div>
+<div class="tab" data-tab="origin">产地不匹配 (<span id="originTabCount">0</span>)</div>
+<div class="tab" data-tab="all">全部差异 (<span id="allTabCount">0</span>)</div>
+</div>
+<div class="tab-content active" id="missingContent">
+<table>
+<thead>
+<tr>
+<th>药品名称</th>
+<th>规格</th>
+<th>产地</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="missingTable">
+<tr>
+<td class="empty-state" colspan="4">
+<div>暂无缺失药品数据</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tab-content" id="specContent">
+<table>
+<thead>
+<tr>
+<th>药品名称</th>
+<th>新数据表规格</th>
+<th>总数据表规格</th>
+<th>产地</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="specTable">
+<tr>
+<td class="empty-state" colspan="5">
+<div>暂无规格不匹配数据</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tab-content" id="originContent">
+<table>
+<thead>
+<tr>
+<th>药品名称</th>
+<th>规格</th>
+<th>新数据表产地</th>
+<th>总数据表产地</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="originTable">
+<tr>
+<td class="empty-state" colspan="5">
+<div>暂无产地不匹配数据</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="tab-content" id="allContent">
+<table>
+<thead>
+<tr>
+<th>药品名称</th>
+<th>规格</th>
+<th>产地</th>
+<th>差异类型</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody id="allTable">
+<tr>
+<td class="empty-state" colspan="5">
+<div>暂无差异数据</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="actions">
+<button class="btn btn-success" disabled="" id="downloadBtn">下载结果表格</button>
+<button class="btn btn-warning" disabled="" id="saveBtn">保存结果到缓存</button>
+<button class="btn btn-danger" id="clearBtn">清除缓存</button>
+</div>
+<div class="storage-info">
+<div>缓存使用情况：<span id="storageStatus">未使用</span></div>
+<div>离线数据状态：<span id="dataStatus">无数据</span></div>
+</div>
+<footer>
+<p>药品数据对比工具 - 离线版本 | 无需登录 | 数据仅在浏览器中处理</p>
+<p>注意：关闭浏览器后本地缓存的数据仍然可用，直到清除缓存</p>
+</footer>
+<script>
+    // 全局变量
+    let tableA = [];
+    let tableB = [];
+    let results = {
+        missing: [],
+        spec: [],
+        origin: []
+    };
+
+    // DOM元素
+    const dropAreaA = document.getElementById('dropAreaA');
+    const dropAreaB = document.getElementById('dropAreaB');
+    const fileInputA = document.getElementById('fileInputA');
+    const fileInputB = document.getElementById('fileInputB');
+    const fileInfoA = document.getElementById('fileInfoA');
+    const fileInfoB = document.getElementById('fileInfoB');
+    const compareBtn = document.getElementById('compareBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const progressBar = document.getElementById('progressBar');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const storageStatus = document.getElementById('storageStatus');
+    const dataStatus = document.getElementById('dataStatus');
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 检查是否有缓存数据
+        checkStoredData();
+
+        // 设置拖放事件
+        setupDragAndDrop(dropAreaA, fileInputA, fileInfoA, 'A');
+        setupDragAndDrop(dropAreaB, fileInputB, fileInfoB, 'B');
+
+        // 按钮事件
+        compareBtn.addEventListener('click', compareTables);
+        resetBtn.addEventListener('click', resetApp);
+        downloadBtn.addEventListener('click', downloadResults);
+        saveBtn.addEventListener('click', saveToStorage);
+        clearBtn.addEventListener('click', clearStorage);
+
+        // 标签页切换
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有active类
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                // 添加active类到当前标签
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}Content`).classList.add('active');
+            });
+        });
+    });
+
+    // 设置拖放区域
+    function setupDragAndDrop(dropArea, fileInput, fileInfo, tableId) {
+        // 点击事件
+        dropArea.addEventListener('click', () => fileInput.click());
+
+        // 拖放事件
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        // 文件选择事件
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight() {
+            dropArea.classList.add('active');
+        }
+
+        function unhighlight() {
+            dropArea.classList.remove('active');
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files.length) {
+                fileInput.files = files;
+                handleFileSelect.call(fileInput, {target: fileInput});
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+            readFile(file, tableId);
+        }
+    }
+    // 清洗数据（过滤空行 + 清洗规格）
+    function cleanData(data) {
+        return data
+            .filter(row => {
+                const name = row['药品名称'];
+                const spec = row['规格'];
+                const origin = row['产地'];
+
+                // 过滤掉任一字段为空的数据
+                return name && spec && origin &&
+                       typeof name === 'string' && name.trim() !== '' &&
+                       typeof spec === 'string' && spec.trim() !== '' &&
+                       typeof origin === 'string' && origin.trim() !== '';
+            })
+            .map(row => ({
+                ...row,
+                '规格': cleanSpec(row['规格']),
+            }));
+    }
+
+
+    // 读取文件
+function readFile(file, tableId) {
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+
+            // 获取第一个工作表
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+
+            // 转换为JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            // 数据清洗（包括空值过滤 + 规格清洗）
+            const cleanedData = cleanData(jsonData);
+
+            // 检查必要列
+            const requiredCols = ['药品名称', '规格', '产地'];
+            const firstRow = cleanedData[0] || {};
+            const missingCols = requiredCols.filter(col => !(col in firstRow));
+
+            if (missingCols.length > 0) {
+                alert(`表${tableId} 缺少必要列名：${missingCols.join(', ')}`);
+                console.error(`表${tableId} 缺少必要列名：${missingCols.join(', ')}`);
+                return;
+            }
+
+            if (cleanedData.length === 0) {
+                alert(`表${tableId} 数据为空或所有行均为无效数据，请检查文件内容`);
+                return;
+            }
+
+            if (tableId === 'A') {
+                tableA = cleanedData;
+            } else {
+                tableB = cleanedData;
+            }
+
+            console.log(`表${tableId} 文件内容（已清洗）：`, cleanedData);
+            console.log(`表${tableId} 加载成功，共 ${cleanedData.length} 条有效记录`);
+
+            // 更新按钮状态
+            updateButtonState();
+        } catch (error) {
+            console.error('文件处理错误:', error);
+            alert('文件处理错误，请确保文件格式正确');
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+
+    // 更新按钮状态
+    function updateButtonState() {
+        compareBtn.disabled = !(tableA.length > 0 && tableB.length > 0);
+    }
+
+    // 清洗规格
+    function cleanSpec(spec) {
+        if (!spec || typeof spec !== 'string') return '';
+        const cleaned = spec.replace(/\s*1kg\s*/gi, '').trim();
+        return cleaned;
+    }
+
+    // 清洗产地
+    function normalizeOrigin(origin) {
+        if (!origin || typeof origin !== 'string') return '';
+        return origin.replace(/[省市县]/g, '').trim().toLowerCase();
+    }
+
+    // 模糊匹配产地
+    function isSimilarOrigin(originA, originB) {
+        if (!originA || !originB) return false;
+        const normA = normalizeOrigin(originA);
+        const normB = normalizeOrigin(originB);
+        return normA && normB && (normA.includes(normB) || normB.includes(normA));
+    }
+
+    // 对比表格
+    function compareTables() {
+        // 重置结果
+        results = {
+            missing: [],
+            spec: [],
+            origin: []
+        };
+
+        // 显示进度条
+        progressBar.style.width = '0%';
+
+        // 模拟进度更新
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            progressBar.style.width = `${progress}%`;
+            if (progress >= 100) {
+                clearInterval(interval);
+                performComparison();
+            }
+        }, 50);
+    }
+
+    // 执行对比逻辑
+    function performComparison() {
+        console.log('开始比对...');
+        console.log('新数据表样本（已清洗）：', tableA.slice(0, 3));
+        console.log('总数据表样本（已清洗）：', tableB.slice(0, 3));
+
+        // 第一级对比：药品名称缺失
+        results.missing = tableA.filter(itemA => {
+            return !tableB.some(itemB => itemB['药品名称'] === itemA['药品名称']);
+        });
+
+        // 第二级对比：药品存在但规格不同（已清洗）
+        results.spec = tableA.filter(itemA => {
+            const matchInB = tableB.find(itemB => itemB['药品名称'] === itemA['药品名称']);
+            if (!matchInB) return false;
+            return matchInB && matchInB['规格'] !== itemA['规格'];
+        });
+
+        // 第三级对比：规格相同但产地不同（模糊匹配）
+        results.origin = tableA.filter(itemA => {
+            const matchInB = tableB.find(itemB =>
+                itemB['药品名称'] === itemA['药品名称'] &&
+                itemB['规格'] === itemA['规格']
+            );
+
+            if (!matchInB) return false;
+
+            return !isSimilarOrigin(matchInB['产地'], itemA['产地']);
+        });
+
+        console.log(`缺失药品数: ${results.missing.length}`);
+        console.log(`规格不匹配数: ${results.spec.length}`);
+        console.log(`产地不匹配数: ${results.origin.length}`);
+
+        // 更新UI
+        updateResultsUI();
+
+        // 启用按钮
+        downloadBtn.disabled = false;
+        saveBtn.disabled = false;
+    }
+
+
+    // 更新结果UI
+    function updateResultsUI() {
+        // 更新计数
+        document.getElementById('missingCount').textContent = results.missing.length;
+        document.getElementById('specCount').textContent = results.spec.length;
+        document.getElementById('originCount').textContent = results.origin.length;
+
+        document.getElementById('missingTabCount').textContent = results.missing.length;
+        document.getElementById('specTabCount').textContent = results.spec.length;
+        document.getElementById('originTabCount').textContent = results.origin.length;
+        document.getElementById('allTabCount').textContent =
+            results.missing.length + results.spec.length + results.origin.length;
+
+        // 更新表格
+        updateTable('missingTable', results.missing, 'missing', '药品缺失');
+        updateTable('specTable', results.spec, 'spec', '规格不匹配');
+        updateTable('originTable', results.origin, 'origin', '产地不匹配');
+        updateAllTable();
+    }
+
+    // 更新单个表格
+    function updateTable(tableId, data, type, statusText) {
+        const tableBody = document.getElementById(tableId);
+
+        if (data.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="${type === 'missing' ? 4 : 5}" class="empty-state">
+                        <div>暂无${statusText}数据</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+
+        data.forEach(item => {
+            let statusClass = '';
+            let statusLabel = '';
+
+            if (type === 'missing') {
+                statusClass = 'status-missing';
+                statusLabel = '药品缺失';
+            } else if (type === 'spec') {
+                statusClass = 'status-spec';
+                statusLabel = '规格不匹配';
+            } else if (type === 'origin') {
+                statusClass = 'status-origin';
+                statusLabel = '产地不匹配';
+            }
+
+            if (type === 'spec') {
+                const matchInB = tableB.find(b => b['药品名称'] === item['药品名称']);
+                const cleanedSpecB = matchInB ? cleanSpec(matchInB['规格']) : 'N/A';
+                const cleanedSpecA = cleanSpec(item['规格']);
+
+                html += `
+                    <tr>
+                        <td>${item['药品名称'] || 'N/A'}</td>
+                        <td>
+                            ${cleanedSpecA}
+                        </td>
+                        <td>
+                           ${cleanedSpecB}
+                        </td>
+                        <td>${item['产地'] || 'N/A'}</td>
+                        <td><span class="status-cell ${statusClass}">${statusLabel}</span></td>
+                    </tr>
+                `;
+            } else if (type === 'origin') {
+                const cleanedSpecA = cleanSpec(item['规格']);
+                const matchInB = tableB.find(b =>
+                    b['药品名称'] === item['药品名称'] &&
+                    cleanSpec(b['规格']) === cleanedSpecA
+                );
+
+                html += `
+                    <tr>
+                        <td>${item['药品名称'] || 'N/A'}</td>
+                        <td>${cleanedSpecA}</td>
+                        <td>${item['产地'] || 'N/A'}</td>
+                        <td>${matchInB ? matchInB['产地'] || 'N/A' : 'N/A'}</td>
+                        <td><span class="status-cell ${statusClass}">${statusLabel}</span></td>
+                    </tr>
+                `;
+            } else if (type === 'missing') {
+                const cleanedSpecA = cleanSpec(item['规格']);
+                html += `
+                    <tr>
+                        <td>${item['药品名称'] || 'N/A'}</td>
+                        <td>${cleanedSpecA}</td>
+                        <td>${item['产地'] || 'N/A'}</td>
+                        <td><span class="status-cell ${statusClass}">${statusLabel}</span></td>
+                    </tr>
+                `;
+            }
+        });
+
+        tableBody.innerHTML = html;
+    }
+
+    // 更新全部差异表格
+    function updateAllTable() {
+        const allData = [
+            ...results.missing.map(item => ({...item, type: 'missing', typeText: '药品缺失'})),
+            ...results.spec.map(item => ({...item, type: 'spec', typeText: '规格不匹配'})),
+            ...results.origin.map(item => ({...item, type: 'origin', typeText: '产地不匹配'}))
+        ];
+
+        const tableBody = document.getElementById('allTable');
+
+        if (allData.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <div>暂无差异数据</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        allData.forEach(item => {
+            let statusClass = '';
+            const cleanedSpecA = cleanSpec(item['规格']);
+            if (item.type === 'missing') {
+                statusClass = 'status-missing';
+            } else if (item.type === 'spec') {
+                statusClass = 'status-spec';
+            } else if (item.type === 'origin') {
+                statusClass = 'status-origin';
+            }
+
+            html += `
+                <tr>
+                    <td>${item['药品名称'] || 'N/A'}</td>
+                    <td>${cleanedSpecA}</td>
+                    <td>${item['产地'] || 'N/A'}</td>
+                    <td>${item.typeText}</td>
+                    <td><span class="status-cell ${statusClass}">${item.typeText}</span></td>
+                </tr>
+            `;
+        });
+
+        tableBody.innerHTML = html;
+    }
+
+    // 下载结果
+    // 下载结果 - 修改后的函数
+    function downloadResults() {
+        // 创建包含所有差异的工作簿
+        const wb = XLSX.utils.book_new();
+
+        // 创建包含所有差异的数组
+        const allResults = [
+            ...results.missing.map(item => ({...item})),
+            ...results.spec.map(item => {
+                const matchInB = tableB.find(b => b['药品名称'] === item['药品名称']);
+                return {
+                    ...item
+                };
+            }),
+            ...results.origin.map(item => {
+                const cleanedSpec = cleanSpec(item['规格']);
+                const matchInB = tableB.find(b =>
+                    b['药品名称'] === item['药品名称'] &&
+                    cleanSpec(b['规格']) === cleanedSpec
+                );
+                return {
+                    ...item
+                };
+            })
+        ];
+
+        // 添加表头映射
+        const headerMap = {
+            '药品名称': '药品名称',
+            '规格': '规格',
+            '产地': '产地',
+        };
+
+        // 转换数据为工作表格式
+        const wsData = allResults.map(item => {
+            const newItem = {};
+            // 保留所有原始字段
+            Object.keys(item).forEach(key => {
+                const displayKey = headerMap[key] || key;
+                newItem[displayKey] = item[key];
+            });
+            return newItem;
+        });
+
+        // 添加工作表
+        if (wsData.length > 0) {
+            const ws = XLSX.utils.json_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "全部差异");
+        }
+
+        // 下载文件
+        XLSX.writeFile(wb, "药品对比结果.xlsx");
+    }
+    // 保存到本地存储
+    function saveToStorage() {
+        const dataToSave = {
+            tableA: tableA,
+            tableB: tableB,
+            results: results,
+            timestamp: new Date().toISOString()
+        };
+
+        try {
+            localStorage.setItem('drugComparisonData', JSON.stringify(dataToSave));
+            alert('对比结果已成功保存到本地缓存！');
+            checkStoredData();
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                alert('存储空间不足，无法保存数据');
+            } else {
+                alert('保存失败: ' + e.message);
+            }
+        }
+    }
+
+    // 检查存储数据
+    function checkStoredData() {
+        const storedData = localStorage.getItem('drugComparisonData');
+
+        if (storedData) {
+            try {
+                const data = JSON.parse(storedData);
+                const date = new Date(data.timestamp);
+                dataStatus.textContent = `已保存 (${date.toLocaleDateString()})`;
+                storageStatus.textContent = `已使用 ${formatFileSize(JSON.stringify(data).length)}`;
+            } catch (e) {
+                dataStatus.textContent = "数据损坏";
+                storageStatus.textContent = "未知";
+            }
+        } else {
+            dataStatus.textContent = "无数据";
+            storageStatus.textContent = "未使用";
+        }
+    }
+
+    // 清除存储
+    function clearStorage() {
+        if (confirm('确定要清除所有缓存数据吗？此操作不可撤销。')) {
+            localStorage.removeItem('drugComparisonData');
+            alert('缓存数据已清除！');
+            checkStoredData();
+        }
+    }
+
+    // 重置应用
+    function resetApp() {
+        if (confirm('确定要重置所有数据吗？当前未保存的数据将丢失。')) {
+            tableA = [];
+            tableB = [];
+            results = {
+                missing: [],
+                spec: [],
+                origin: []
+            };
+
+            fileInfoA.textContent = '未选择文件';
+            fileInfoB.textContent = '未选择文件';
+            fileInputA.value = '';
+            fileInputB.value = '';
+
+            compareBtn.disabled = true;
+            downloadBtn.disabled = true;
+            saveBtn.disabled = true;
+
+            document.getElementById('missingCount').textContent = '0';
+            document.getElementById('specCount').textContent = '0';
+            document.getElementById('originCount').textContent = '0';
+
+            document.getElementById('missingTabCount').textContent = '0';
+            document.getElementById('specTabCount').textContent = '0';
+            document.getElementById('originTabCount').textContent = '0';
+            document.getElementById('allTabCount').textContent = '0';
+
+            updateTable('missingTable', [], 'missing', '药品缺失');
+            updateTable('specTable', [], 'spec', '规格不匹配');
+            updateTable('originTable', [], 'origin', '产地不匹配');
+            updateAllTable();
+
+            progressBar.style.width = '0%';
+        }
+    }
+
+    // 辅助函数：格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+</script>
+</body>
 </html>
